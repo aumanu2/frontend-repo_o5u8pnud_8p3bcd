@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { X, ExternalLink } from 'lucide-react';
 
 const sectionsData = [
   { key: 'MyLettering', color: 'from-fuchsia-500 to-rose-500', accent: 'bg-fuchsia-400', subtitle: 'Type, strokes, and vibrant forms' },
@@ -15,6 +16,7 @@ function SectionCard({
   accent,
   progress,
   onEnter,
+  onCenter,
   isActive,
   isDimmed,
 }) {
@@ -33,8 +35,19 @@ function SectionCard({
 
   return (
     <motion.div
+      role="button"
+      tabIndex={0}
+      onDoubleClick={onEnter}
+      onClick={onCenter}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onEnter();
+        if (e.key === ' ') {
+          e.preventDefault();
+          onCenter();
+        }
+      }}
       style={{ y: yParallax, rotate, scale }}
-      className={`relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border bg-gradient-to-br p-8 text-white backdrop-blur-sm ${shadow}`}
+      className={`relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border bg-gradient-to-br p-8 text-white backdrop-blur-sm outline-none ${shadow}`}
     >
       {/* Ambient blobs */}
       <motion.div
@@ -53,18 +66,20 @@ function SectionCard({
       >
         <h3 className="text-4xl font-extrabold drop-shadow-sm sm:text-5xl">{title}</h3>
         <p className="mt-3 max-w-xl text-slate-100/90">{subtitle}</p>
-        <button
-          onClick={onEnter}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onEnter();
-            }
-          }}
-          className="mt-6 rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
-        >
-          Enter
-        </button>
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            onClick={onEnter}
+            className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
+          >
+            Enter
+          </button>
+          <button
+            onClick={onCenter}
+            className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
+          >
+            Center
+          </button>
+        </div>
       </motion.div>
 
       {/* Background & border */}
@@ -83,13 +98,90 @@ function SectionCard({
   );
 }
 
+function SectionDetail({ item, onClose }) {
+  return (
+    <AnimatePresence>
+      {item && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+
+          {/* Panel */}
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            className="relative z-10 mx-4 w-full max-w-4xl overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-br from-white/10 to-white/5 p-0 text-white shadow-2xl backdrop-blur-2xl"
+            initial={{ y: 60, scale: 0.96, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: 60, scale: 0.96, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 140, damping: 18 }}
+          >
+            <div className={`relative h-56 w-full bg-gradient-to-br ${item.color}`}>
+              <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(transparent, rgba(0,0,0,0.55))' }} />
+              <div className="absolute inset-0 p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-3xl font-extrabold">{item.key}</h3>
+                    <p className="mt-2 max-w-xl text-slate-100/90">{item.subtitle}</p>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="rounded-full bg-white/10 p-2 text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <p className="text-slate-200">
+                A cinematic deep-dive view. Replace this section with your project case study: goals, process, and outcomes.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <h4 className="text-sm font-semibold tracking-wide text-white/80">Highlights</h4>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-200/90">
+                    <li>Interactive parallax and motion</li>
+                    <li>Seamless infinite loop navigation</li>
+                    <li>Responsive and accessible controls</li>
+                  </ul>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <h4 className="text-sm font-semibold tracking-wide text-white/80">Links</h4>
+                  <a href="#" className="mt-2 inline-flex items-center gap-2 text-sm text-cyan-300 hover:underline">
+                    View live <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function HorizontalNav() {
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
   const segmentWidthRef = useRef(0);
   const middleRefs = useRef([]); // refs for the middle segment cards only
   const [ready, setReady] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(null); // base index 0..n-1
+  const [selectedIndex, setSelectedIndex] = useState(null); // base index 0..n-1, for visual emphasis
+  const [activeIndex, setActiveIndex] = useState(null); // actually opened detail index
 
   // Repeat data 3x to simulate infinite loop
   const base = sectionsData;
@@ -159,26 +251,68 @@ export default function HorizontalNav() {
     }
   };
 
-  // Focus a card by base index: center the corresponding middle-segment card and trigger cinematic state
-  const focusSection = (baseIndex) => {
+  // Center a card by base index using the middle segment
+  const centerSection = useCallback((baseIndex) => {
     const viewport = viewportRef.current;
     const el = middleRefs.current[baseIndex];
     if (!viewport || !el) return;
-    const viewportRect = viewport.getBoundingClientRect();
-    const cardRect = el.getBoundingClientRect();
-    const currentScrollLeft = viewport.scrollLeft;
-    // Offset of card within the scroll container (track)
     const offsetLeft = el.offsetLeft; // relative to track
     const target = offsetLeft + el.offsetWidth / 2 - viewport.clientWidth / 2;
-
-    // Smooth scroll to center
     viewport.scrollTo({ left: target, behavior: 'smooth' });
     setSelectedIndex(baseIndex);
+  }, []);
 
-    // After a while, clear selection so others return to normal (optional)
-    window.clearTimeout(focusSection._t);
-    focusSection._t = window.setTimeout(() => setSelectedIndex(null), 1500);
-  };
+  // Open detail for a section with cinematic flow: center first, then open
+  const enterSection = useCallback((baseIndex) => {
+    centerSection(baseIndex);
+    // small delay to let scroll settle
+    window.setTimeout(() => {
+      setActiveIndex(baseIndex);
+      const key = base[baseIndex].key;
+      const newHash = `#s/${encodeURIComponent(key)}`;
+      if (window.location.hash !== newHash) {
+        history.pushState(null, '', newHash);
+      }
+    }, 380);
+  }, [centerSection, base]);
+
+  // Close detail
+  const closeDetail = useCallback(() => {
+    setActiveIndex(null);
+    if (window.location.hash.startsWith('#s/')) {
+      history.pushState(null, '', '#');
+    }
+  }, []);
+
+  // Hash-based deep-linking
+  useEffect(() => {
+    const openFromHash = () => {
+      const match = window.location.hash.match(/^#s\/(.*)$/);
+      if (match) {
+        const key = decodeURIComponent(match[1]);
+        const idx = base.findIndex((b) => b.key === key);
+        if (idx !== -1) {
+          enterSection(idx);
+        }
+      } else {
+        setActiveIndex(null);
+      }
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+  }, [base, enterSection]);
+
+  // ESC to close
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDetail();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeDetail]);
+
+  const activeItem = activeIndex != null ? base[activeIndex] : null;
 
   return (
     <section className="relative w-full overflow-hidden bg-black py-12">
@@ -220,7 +354,8 @@ export default function HorizontalNav() {
                     gradient={s.color}
                     accent={s.accent}
                     progress={smooth}
-                    onEnter={() => focusSection(baseIndex)}
+                    onEnter={() => enterSection(baseIndex)}
+                    onCenter={() => centerSection(baseIndex)}
                     isActive={isActive}
                     isDimmed={isDimmed}
                   />
@@ -235,6 +370,9 @@ export default function HorizontalNav() {
       <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 h-1 w-[60%] -translate-x-1/2 overflow-hidden rounded-full bg-white/10">
         <motion.div style={{ scaleX: smooth }} className="origin-left h-full bg-white/60" />
       </div>
+
+      {/* Detail modal */}
+      <SectionDetail item={activeItem} onClose={closeDetail} />
     </section>
   );
 }

@@ -5,7 +5,7 @@ export default function Hero3D() {
   return (
     <section className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white">
       <div className="absolute inset-0">
-        <Spline scene="https://prod.spline.design/0UnIIJngGgvQNHiD/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+        <Spline scene="https://prod.spline.design/N8g2VNcx8Rycz93J/scene.splinecode" style={{ width: '100%', height: '100%' }} />
       </div>
 
       {/* Soft color glows overlay - won't block interaction with Spline */}
