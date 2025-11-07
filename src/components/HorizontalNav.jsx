@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 const sectionsData = [
   { key: 'MyLettering', color: 'from-fuchsia-500 to-rose-500', accent: 'bg-fuchsia-400', subtitle: 'Type, strokes, and vibrant forms' },
@@ -36,31 +36,80 @@ function SectionCard({ title, subtitle, gradient, accent, progress }) {
 }
 
 export default function HorizontalNav() {
-  const sectionRef = useRef(null);
-  const scrollerRef = useRef(null);
-  const [width, setWidth] = useState(0);
+  const viewportRef = useRef(null);
+  const trackRef = useRef(null);
+  const segmentWidthRef = useRef(0);
+  const [ready, setReady] = useState(false);
 
+  // Repeat data 3x to simulate infinite loop
   const data = useMemo(() => sectionsData.concat(sectionsData).concat(sectionsData), []);
 
-  // Progress based on this section in the viewport (not a scrollable container)
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
-  const smooth = useSpring(scrollYProgress, { stiffness: 80, damping: 20, mass: 0.5 });
+  // Motion value representing normalized progress across the current segment [0..1]
+  const segmentProgress = useMotionValue(0);
+  const smooth = useSpring(segmentProgress, { stiffness: 80, damping: 20, mass: 0.5 });
 
+  // Measure and initialize scroll position to the middle segment for seamless looping
   useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const onResize = () => setWidth(el.scrollWidth);
-    onResize();
-    const ro = new ResizeObserver(onResize);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    if (!viewport || !track) return;
 
-  // Translate one full set to create an infinite wrap illusion
-  const x = useTransform(smooth, [0, 1], [0, -width / 3]);
+    const update = () => {
+      const totalWidth = track.scrollWidth;
+      const segmentWidth = totalWidth / 3; // since we repeat 3x
+      segmentWidthRef.current = segmentWidth;
+
+      // Initialize in the middle segment only once
+      if (!ready) {
+        viewport.scrollLeft = segmentWidth;
+        setReady(true);
+      }
+
+      const progress = ((viewport.scrollLeft % segmentWidth) + segmentWidth) % segmentWidth; // wrap positive
+      segmentProgress.set(segmentWidth ? progress / segmentWidth : 0);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(track);
+
+    return () => ro.disconnect();
+  }, [ready, segmentProgress]);
+
+  // Keep it infinite: if user nears edges, warp back into the center segment
+  const handleScroll = () => {
+    const viewport = viewportRef.current;
+    const segmentWidth = segmentWidthRef.current;
+    if (!viewport || !segmentWidth) return;
+
+    const total = segmentWidth * 3;
+    let x = viewport.scrollLeft;
+
+    // When near the start of first or end of last, jump but preserve relative offset
+    if (x < segmentWidth * 0.1) {
+      viewport.scrollLeft = x + segmentWidth;
+      x = viewport.scrollLeft;
+    } else if (x > segmentWidth * 1.9) {
+      viewport.scrollLeft = x - segmentWidth;
+      x = viewport.scrollLeft;
+    }
+
+    const progress = ((x % segmentWidth) + segmentWidth) % segmentWidth;
+    segmentProgress.set(progress / segmentWidth);
+  };
+
+  // Support mice that only emit vertical wheel by mapping deltaY -> horizontal scroll when hovering
+  const handleWheel = (e) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      viewport.scrollLeft += e.deltaY;
+    }
+  };
 
   return (
-    <section ref={sectionRef} className="relative h-[160vh] w-full overflow-hidden bg-black py-16">
+    <section className="relative w-full overflow-hidden bg-black py-12">
       {/* Background Cinematic Layers */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-10%] top-[20%] h-96 w-[40%] -skew-y-6 rounded-3xl bg-fuchsia-500/20 blur-3xl" />
@@ -70,22 +119,31 @@ export default function HorizontalNav() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_60%)]" />
       </div>
 
-      <div className="sticky top-0 z-10 mx-auto flex h-[100vh] max-w-[1800px] items-center overflow-hidden">
-        <motion.div ref={scrollerRef} style={{ x }} className="flex items-center">
-          {data.map((s, i) => (
-            <SectionCard
-              key={`${s.key}-${i}`}
-              title={s.key}
-              subtitle={s.subtitle}
-              gradient={s.color}
-              accent={s.accent}
-              progress={smooth}
-            />
-          ))}
-        </motion.div>
+      <div className="relative z-10 mx-auto flex h-[90vh] max-w-[2000px] items-center">
+        <div
+          ref={viewportRef}
+          onScroll={handleScroll}
+          onWheel={handleWheel}
+          className="scrollbar-none relative mx-auto h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden"
+          style={{ scrollBehavior: 'smooth' }}
+        >
+          <div ref={trackRef} className="flex h-full items-center">
+            {data.map((s, i) => (
+              <div key={`${s.key}-${i}`} className="snap-start">
+                <SectionCard
+                  title={s.key}
+                  subtitle={s.subtitle}
+                  gradient={s.color}
+                  accent={s.accent}
+                  progress={smooth}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar tied to segment progress */}
       <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 h-1 w-[60%] -translate-x-1/2 overflow-hidden rounded-full bg-white/10">
         <motion.div style={{ scaleX: smooth }} className="origin-left h-full bg-white/60" />
       </div>
