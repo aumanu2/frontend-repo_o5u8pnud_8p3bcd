@@ -8,29 +8,77 @@ const sectionsData = [
   { key: 'ArqEdu', color: 'from-amber-500 to-orange-500', accent: 'bg-amber-400', subtitle: 'Architecture, learning, and play' },
 ];
 
-function SectionCard({ title, subtitle, gradient, accent, progress }) {
+function SectionCard({
+  title,
+  subtitle,
+  gradient,
+  accent,
+  progress,
+  onEnter,
+  isActive,
+  isDimmed,
+}) {
+  // Base parallax transforms driven by horizontal progress
   const yParallax = useTransform(progress, [0, 1], [40, -40]);
   const rotate = useTransform(progress, [0, 1], [-4, 4]);
-  const scale = useTransform(progress, [0, 1], [0.95, 1]);
+  const scaleBase = useTransform(progress, [0, 1], [0.95, 1]);
+
+  // Active cinematic boost
+  const activeBoost = useSpring(isActive ? 1 : 0, { stiffness: 200, damping: 24, mass: 0.4 });
+  const scale = useTransform([scaleBase, activeBoost], ([s, a]) => s * (1 + 0.08 * a));
+  const elevate = useTransform(activeBoost, [0, 1], [0, -10]);
+  const glowOpacity = useTransform(activeBoost, [0, 1], [0.15, 0.35]);
+  const borderOpacity = useTransform(activeBoost, [0, 1], [0.1, 0.35]);
+  const shadow = isActive ? 'shadow-[0_30px_80px_rgba(255,255,255,0.12)]' : 'shadow-2xl';
 
   return (
     <motion.div
       style={{ y: yParallax, rotate, scale }}
-      className="relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br p-8 text-white shadow-2xl backdrop-blur-sm"
+      className={`relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border bg-gradient-to-br p-8 text-white backdrop-blur-sm ${shadow}`}
     >
-      <div className={`pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl ${accent} opacity-30`} />
-      <div className={`pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl ${accent} opacity-20`} />
+      {/* Ambient blobs */}
+      <motion.div
+        style={{ opacity: glowOpacity }}
+        className={`pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl ${accent}`}
+      />
+      <motion.div
+        style={{ opacity: glowOpacity }}
+        className={`pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl ${accent}`}
+      />
 
-      <div className="relative z-10">
+      {/* Content */}
+      <motion.div
+        style={{ y: elevate, opacity: isDimmed ? 0.55 : 1 }}
+        className="relative z-10"
+      >
         <h3 className="text-4xl font-extrabold drop-shadow-sm sm:text-5xl">{title}</h3>
         <p className="mt-3 max-w-xl text-slate-100/90">{subtitle}</p>
-        <button className="mt-6 rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20">
+        <button
+          onClick={onEnter}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onEnter();
+            }
+          }}
+          className="mt-6 rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
+        >
           Enter
         </button>
-      </div>
+      </motion.div>
 
-      <div className={`absolute inset-0 -z-0 bg-gradient-to-br ${gradient} opacity-70`} />
+      {/* Background & border */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-70`} />
       <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(transparent, rgba(0,0,0,0.55))' }} />
+      <motion.div
+        style={{ opacity: borderOpacity }}
+        className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/50"
+      />
+
+      {/* Cinematic focus vignette when active */}
+      {isActive && (
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.15),transparent_60%)]" />
+      )}
     </motion.div>
   );
 }
@@ -39,10 +87,14 @@ export default function HorizontalNav() {
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
   const segmentWidthRef = useRef(0);
+  const middleRefs = useRef([]); // refs for the middle segment cards only
   const [ready, setReady] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(null); // base index 0..n-1
 
   // Repeat data 3x to simulate infinite loop
-  const data = useMemo(() => sectionsData.concat(sectionsData).concat(sectionsData), []);
+  const base = sectionsData;
+  const baseCount = base.length;
+  const data = useMemo(() => base.concat(base).concat(base), [base]);
 
   // Motion value representing normalized progress across the current segment [0..1]
   const segmentProgress = useMotionValue(0);
@@ -82,7 +134,6 @@ export default function HorizontalNav() {
     const segmentWidth = segmentWidthRef.current;
     if (!viewport || !segmentWidth) return;
 
-    const total = segmentWidth * 3;
     let x = viewport.scrollLeft;
 
     // When near the start of first or end of last, jump but preserve relative offset
@@ -108,6 +159,27 @@ export default function HorizontalNav() {
     }
   };
 
+  // Focus a card by base index: center the corresponding middle-segment card and trigger cinematic state
+  const focusSection = (baseIndex) => {
+    const viewport = viewportRef.current;
+    const el = middleRefs.current[baseIndex];
+    if (!viewport || !el) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const cardRect = el.getBoundingClientRect();
+    const currentScrollLeft = viewport.scrollLeft;
+    // Offset of card within the scroll container (track)
+    const offsetLeft = el.offsetLeft; // relative to track
+    const target = offsetLeft + el.offsetWidth / 2 - viewport.clientWidth / 2;
+
+    // Smooth scroll to center
+    viewport.scrollTo({ left: target, behavior: 'smooth' });
+    setSelectedIndex(baseIndex);
+
+    // After a while, clear selection so others return to normal (optional)
+    window.clearTimeout(focusSection._t);
+    focusSection._t = window.setTimeout(() => setSelectedIndex(null), 1500);
+  };
+
   return (
     <section className="relative w-full overflow-hidden bg-black py-12">
       {/* Background Cinematic Layers */}
@@ -128,17 +200,33 @@ export default function HorizontalNav() {
           style={{ scrollBehavior: 'smooth' }}
         >
           <div ref={trackRef} className="flex h-full items-center">
-            {data.map((s, i) => (
-              <div key={`${s.key}-${i}`} className="snap-start">
-                <SectionCard
-                  title={s.key}
-                  subtitle={s.subtitle}
-                  gradient={s.color}
-                  accent={s.accent}
-                  progress={smooth}
-                />
-              </div>
-            ))}
+            {data.map((s, i) => {
+              const baseIndex = i % baseCount;
+              const segmentIndex = Math.floor(i / baseCount); // 0,1,2
+              const isMiddle = segmentIndex === 1;
+              const setRef = (el) => {
+                if (isMiddle) {
+                  middleRefs.current[baseIndex] = el;
+                }
+              };
+              const isActive = selectedIndex === baseIndex && isMiddle;
+              const isDimmed = selectedIndex !== null && !isActive;
+
+              return (
+                <div key={`${s.key}-${i}`} className="snap-start" ref={setRef}>
+                  <SectionCard
+                    title={s.key}
+                    subtitle={s.subtitle}
+                    gradient={s.color}
+                    accent={s.accent}
+                    progress={smooth}
+                    onEnter={() => focusSection(baseIndex)}
+                    isActive={isActive}
+                    isDimmed={isDimmed}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
