@@ -22,8 +22,22 @@ function SectionCard({
 }) {
   // Base parallax transforms driven by horizontal progress
   const yParallax = useTransform(progress, [0, 1], [40, -40]);
-  const rotate = useTransform(progress, [0, 1], [-4, 4]);
+  const rotateZ = useTransform(progress, [0, 1], [-4, 4]);
   const scaleBase = useTransform(progress, [0, 1], [0.95, 1]);
+
+  // Mouse-based per-card parallax
+  const mx = useMotionValue(0); // normalized -0.5..0.5
+  const my = useMotionValue(0);
+  const rotateX = useTransform(my, [-0.5, 0.5], [6, -6]);
+  const rotateY = useTransform(mx, [-0.5, 0.5], [-8, 8]);
+
+  // Layered depth translations
+  const d1x = useTransform(mx, [-0.5, 0.5], [20, -20]);
+  const d1y = useTransform(my, [-0.5, 0.5], [20, -20]);
+  const d2x = useTransform(mx, [-0.5, 0.5], [40, -40]);
+  const d2y = useTransform(my, [-0.5, 0.5], [40, -40]);
+  const d3x = useTransform(mx, [-0.5, 0.5], [70, -70]);
+  const d3y = useTransform(my, [-0.5, 0.5], [70, -70]);
 
   // Active cinematic boost
   const activeBoost = useSpring(isActive ? 1 : 0, { stiffness: 200, damping: 24, mass: 0.4 });
@@ -32,6 +46,18 @@ function SectionCard({
   const glowOpacity = useTransform(activeBoost, [0, 1], [0.15, 0.35]);
   const borderOpacity = useTransform(activeBoost, [0, 1], [0.1, 0.35]);
   const shadow = isActive ? 'shadow-[0_30px_80px_rgba(255,255,255,0.12)]' : 'shadow-2xl';
+
+  const onMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width; // 0..1
+    const y = (e.clientY - rect.top) / rect.height; // 0..1
+    mx.set(x - 0.5);
+    my.set(y - 0.5);
+  };
+  const onLeave = () => {
+    mx.set(0);
+    my.set(0);
+  };
 
   return (
     <motion.div
@@ -46,22 +72,43 @@ function SectionCard({
           onCenter();
         }
       }}
-      style={{ y: yParallax, rotate, scale }}
-      className={`relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border bg-gradient-to-br p-8 text-white backdrop-blur-sm outline-none ${shadow}`}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      style={{ y: yParallax, rotateZ, rotateX, rotateY, scale, transformStyle: 'preserve-3d' }}
+      className={`group relative mx-6 flex h-[70vh] w-[85vw] min-w-[320px] max-w-[900px] flex-shrink-0 items-end overflow-hidden rounded-3xl border bg-gradient-to-br p-8 text-white backdrop-blur-sm outline-none ${shadow}`}
     >
-      {/* Ambient blobs */}
+      {/* Depth layer 3 - far background twinkle field (moves least) */}
       <motion.div
-        style={{ opacity: glowOpacity }}
+        aria-hidden
+        style={{ x: d1x, y: d1y, translateZ: -60 }}
+        className="pointer-events-none absolute inset-0 opacity-20"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.15),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.12),transparent_45%)]" />
+      </motion.div>
+
+      {/* Depth layer 2 - neon trails */}
+      <motion.div
+        aria-hidden
+        style={{ x: d2x, y: d2y, translateZ: -30 }}
+        className="pointer-events-none absolute inset-0" 
+      >
+        <div className="absolute -left-1/3 top-1/4 h-40 w-2/3 rotate-12 rounded-full bg-gradient-to-r from-white/30 via-white/10 to-transparent blur-2xl" />
+        <div className="absolute -right-1/3 bottom-1/4 h-40 w-2/3 -rotate-12 rounded-full bg-gradient-to-l from-white/25 via-white/10 to-transparent blur-2xl" />
+      </motion.div>
+
+      {/* Ambient blobs (accent color) */}
+      <motion.div
+        style={{ opacity: glowOpacity, x: d3x, y: d3y, translateZ: -10 }}
         className={`pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full blur-3xl ${accent}`}
       />
       <motion.div
-        style={{ opacity: glowOpacity }}
+        style={{ opacity: glowOpacity, x: d3x, y: d3y, translateZ: -10 }}
         className={`pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl ${accent}`}
       />
 
       {/* Content */}
       <motion.div
-        style={{ y: elevate, opacity: isDimmed ? 0.55 : 1 }}
+        style={{ y: elevate, opacity: isDimmed ? 0.55 : 1, translateZ: 20 }}
         className="relative z-10"
       >
         <h3 className="text-4xl font-extrabold drop-shadow-sm sm:text-5xl">{title}</h3>

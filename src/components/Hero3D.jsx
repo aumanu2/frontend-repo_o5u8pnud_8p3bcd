@@ -3,9 +3,9 @@ import Spline from '@splinetool/react-spline';
 
 export default function Hero3D() {
   return (
-    <section className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white">
+    <section className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-slate-950 via-black to-slate-950 text-white">
       <div className="absolute inset-0">
-        <Spline scene="https://prod.spline.design/N8g2VNcx8Rycz93J/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+        <Spline scene="https://prod.spline.design/7m4PRZ7kg6K1jPfF/scene.splinecode" style={{ width: '100%', height: '100%' }} />
       </div>
 
       {/* Soft color glows overlay - won't block interaction with Spline */}
@@ -14,7 +14,7 @@ export default function Hero3D() {
         <div className="absolute top-1/3 -right-10 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="absolute bottom-0 left-1/4 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
         <div className="absolute bottom-10 right-1/3 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
       </div>
 
       {/* Foreground content */}
