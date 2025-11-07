@@ -36,14 +36,14 @@ function SectionCard({ title, subtitle, gradient, accent, progress }) {
 }
 
 export default function HorizontalNav() {
-  const containerRef = useRef(null);
+  const sectionRef = useRef(null);
   const scrollerRef = useRef(null);
   const [width, setWidth] = useState(0);
 
   const data = useMemo(() => sectionsData.concat(sectionsData).concat(sectionsData), []);
 
-  // Tie vertical scroll to horizontal translation
-  const { scrollYProgress } = useScroll({ container: containerRef });
+  // Progress based on this section in the viewport (not a scrollable container)
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const smooth = useSpring(scrollYProgress, { stiffness: 80, damping: 20, mass: 0.5 });
 
   useEffect(() => {
@@ -56,11 +56,11 @@ export default function HorizontalNav() {
     return () => ro.disconnect();
   }, []);
 
-  // Map progress (0..1) to a long horizontal translation that loops
+  // Translate one full set to create an infinite wrap illusion
   const x = useTransform(smooth, [0, 1], [0, -width / 3]);
 
   return (
-    <section ref={containerRef} className="relative h-[160vh] w-full overflow-hidden bg-black py-16">
+    <section ref={sectionRef} className="relative h-[160vh] w-full overflow-hidden bg-black py-16">
       {/* Background Cinematic Layers */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-10%] top-[20%] h-96 w-[40%] -skew-y-6 rounded-3xl bg-fuchsia-500/20 blur-3xl" />
